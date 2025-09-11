@@ -1,0 +1,131 @@
+
+**/*.pt
+**/checkpoints
+**/wget-log
+**/_build/
+**/*.ckpt
+**/outputs
+**/*.tar.gz
+**/playground
+**/wandb
+
+# byte-compiled / optimized / dll files
+__pycache__/
+*.py[cod]
+*$py.class
+dataset/*
+tensorflow/my_graph/*
+.idea/
+# c extensions
+*.so
+
+# distribution / packaging
+.python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+tmp/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# pyinstaller
+#  usually these files are written by a python script from a template
+#  before pyinstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+pytest.ini
+output.txt
+
+# translations
+*.mo
+*.pot
+
+# django stuff:
+*.log
+local_settings.py
+
+# flask stuff:
+instance/
+.webassets-cache
+
+# scrapy stuff:
+.scrapy
+
+# sphinx documentation
+docs/_build/
+
+# pybuilder
+target/
+
+# ipython notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# dotenv
+.env
+
+# virtualenv
+venv/
+.venv/
+env/
+
+# spyder project settings
+.spyderproject
+
+# rope project settings
+.ropeproject
+
+# vscode
+.vscode
+
+# mac
+.ds_store
+
+# vim
+*.swp
+
+# ckpt
+*.lock
+
+# data
+*.parquet
+
+
+# local logs
+logs
+log
+outputs
+.history
+
+
+config.json
