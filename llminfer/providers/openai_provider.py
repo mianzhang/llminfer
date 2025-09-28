@@ -4,6 +4,7 @@ OpenAI API provider implementation.
 
 import concurrent.futures
 from typing import List, Dict, Union, Optional
+from tqdm import tqdm
 from .base import LLMProvider
 from ..config import load_api_key
 
@@ -103,10 +104,12 @@ class OpenAIProvider(LLMProvider):
                 )
                 future_to_index[future] = i
             
-            # Collect results in the original order
+            # Collect results in the original order with progress bar
             results = [''] * len(conversations)
-            for future in concurrent.futures.as_completed(future_to_index):
-                index = future_to_index[future]
-                results[index] = future.result()
+            with tqdm(total=len(conversations), desc=f"OpenAI inference ({model})") as pbar:
+                for future in concurrent.futures.as_completed(future_to_index):
+                    index = future_to_index[future]
+                    results[index] = future.result()
+                    pbar.update(1)
         
         return results 
