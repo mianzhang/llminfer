@@ -208,6 +208,15 @@ responses = llminfer.infer(
     model="meta-llama/Llama-2-7b-chat-hf"
 )
 
+# With thinking mode for supported models (Qwen3, Gemini 2.5)
+responses = llminfer.infer(
+    conversations,
+    provider="vllm",
+    model="Qwen/Qwen3-7B-Instruct",
+    enable_thinking=True,  # Enable thinking mode
+    temperature=0.7
+)
+
 # JSONL processing now works with both formats:
 llminfer.process_jsonl(
     "conversations.jsonl",  # Can contain conversations or string prompts
@@ -390,6 +399,33 @@ responses = llminfer.infer(
     model="claude-3-7-sonnet",
     enable_thinking=True,
     thinking_budget=10000
+)
+
+# Gemini thinking mode (Gemini 2.5+)
+responses = llminfer.infer(
+    conversation,
+    provider="gemini",
+    model="gemini-2.5-flash",
+    thinking_budget=8000,
+    include_thoughts=True
+)
+
+# VLLM thinking mode (for Qwen3, Gemini 2.5, etc.)
+responses = llminfer.infer(
+    conversation,
+    provider="vllm",
+    model="Qwen/Qwen3-7B-Instruct",
+    enable_thinking=True,
+    temperature=0.7
+)
+
+# OpenAI reasoning models (o1, o3)
+responses = llminfer.infer(
+    conversation,
+    provider="openai",
+    model="o1-preview",
+    reasoning_effort="high",
+    max_completion_tokens=4000
 )
 ```
 

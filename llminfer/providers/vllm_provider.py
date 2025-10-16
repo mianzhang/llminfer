@@ -79,8 +79,14 @@ class VLLMProvider(LLMProvider):
             self._llm = self.LLM(**llm_params)
         return self._llm
     
-    def _conversation_to_prompt(self, conversation: List[Dict]) -> str:
-        """Convert a conversation to a prompt string using the tokenizer's chat template."""
+    def _conversation_to_prompt(self, conversation: List[Dict], enable_thinking: bool = False) -> str:
+        """
+        Convert a conversation to a prompt string using the tokenizer's chat template.
+        
+        Args:
+            conversation: List of message dicts with 'role' and 'content' keys
+            enable_thinking: Whether to enable thinking mode for models that support it
+        """
         tokenizer = self._get_tokenizer()
         if tokenizer is None:
             # Fallback: simple concatenation if tokenizer not available
@@ -99,7 +105,6 @@ class VLLMProvider(LLMProvider):
         try:
             # Check if this is a model that supports thinking (like Qwen3 or Gemini 2.5)
             model_lower = self.model_id.lower()
-            enable_thinking = False  # Default to False for most models
             
             if 'qwen3' in model_lower or ('gemini' in model_lower and '2.5' in model_lower):
                 # These models support thinking parameter
@@ -142,7 +147,8 @@ class VLLMProvider(LLMProvider):
                     prompt_parts.append(f"Assistant: {content}")
             return "\n".join(prompt_parts) + "\nAssistant:"
     
-    def infer(self, conversations: Union[List[Dict], Dict, List[str], str], **sampling_kwargs) -> List[str]:
+    def infer(self, conversations: Union[List[Dict], Dict, List[str], str], 
+              enable_thinking: bool = False, **sampling_kwargs) -> List[str]:
         """
         Run VLLM inference.
         
@@ -152,6 +158,7 @@ class VLLMProvider(LLMProvider):
                 - List of conversation dicts: [[{"role": "user", "content": "..."}], ...]
                 - Single prompt string: "What is AI?"
                 - List of prompt strings: ["What is AI?", "Explain ML", ...]
+            enable_thinking: Whether to enable thinking mode for models that support it (e.g., Qwen3, Gemini 2.5)
             **sampling_kwargs: Additional sampling parameters for SamplingParams
             
         Returns:
@@ -170,7 +177,7 @@ class VLLMProvider(LLMProvider):
             elif isinstance(conv, list) and len(conv) > 0 and isinstance(conv[0], dict):
                 # Conversation format - convert to prompt
                 try:
-                    prompt = self._conversation_to_prompt(conv)
+                    prompt = self._conversation_to_prompt(conv, enable_thinking=enable_thinking)
                     prompts.append(prompt)
                 except Exception as e:
                     print(f"Error converting conversation to prompt: {e}")
@@ -183,7 +190,7 @@ class VLLMProvider(LLMProvider):
         try:
             # Set default sampling parameters
             default_sampling_params = {
-                'max_tokens': 1024,
+                'max_tokens': 2048,
                 'temperature': 0.7,
             }
             
