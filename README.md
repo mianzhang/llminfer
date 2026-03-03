@@ -80,14 +80,34 @@ String prompts:
 {"id": 2, "prompt": "Explain quantum computing in simple terms."}
 ```
 
-Conversation lists (for OpenAI/Anthropic/Gemini only):
+Conversation lists:
 ```jsonl
 {"id": 1, "conversation": [{"role": "user", "content": "Hello!"}]}
 {"id": 2, "messages": [{"role": "system", "content": "You are helpful."}, {"role": "user", "content": "What is 2+2?"}]}
 ```
 
-**Note**: VLLM will raise an error if you try to use conversation lists. Use string prompts instead.
+```python
+# Process prompts with a vLLM HTTP server (OpenAI-compatible)
+# Requires a running vLLM server, for example:
+#   python -m vllm.entrypoints.openai.api_server --model /path/to/model
+import os
+import llminfer
 
+# Optional: configure via environment variables
+os.environ["VLLM_BASE_URL"] = "http://localhost:8000/v1"  # default URL
+os.environ["VLLM_API_KEY"] = "EMPTY"  # or your real key if your server enforces auth
+
+llminfer.process_jsonl(
+    "prompts.jsonl",
+    "vllm_server_output.jsonl",
+    provider="vllm_server",
+    model="your-model-name",  # as exposed by the vLLM server
+    input_key="prompt",       # JSONL column containing input text
+    response_key="response",  # JSONL column to store model outputs
+    temperature=0.7,
+    max_tokens=512,
+)
+```
 
 
 **Output format:**
@@ -443,10 +463,11 @@ Create a `config.json` file in your project directory:
 }
 ```
 
-Or generate a sample config:
-```bash
-llminfer --create-config
-# This creates config.json.example - copy to config.json and add your keys
+Or generate a sample config from Python:
+```python
+from llminfer.config import create_sample_config
+
+create_sample_config()  # creates config.json.example - copy to config.json and add your keys
 ```
 
 ### Option 2: Environment Variables

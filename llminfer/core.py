@@ -4,7 +4,13 @@ Core functions for LLM inference and JSONL processing.
 
 from typing import List, Dict, Any, Union, Optional
 from .utils import read_jsonl, write_jsonl
-from .providers import OpenAIProvider, AnthropicProvider, GeminiProvider, VLLMProvider
+from .providers import (
+    OpenAIProvider,
+    AnthropicProvider,
+    GeminiProvider,
+    VLLMProvider,
+    VLLMServerProvider,
+)
 
 
 def infer(conversations: Union[List[Dict], Dict], provider: str, model: str, **kwargs) -> List[str]:
@@ -13,7 +19,7 @@ def infer(conversations: Union[List[Dict], Dict], provider: str, model: str, **k
     
     Args:
         conversations: Single conversation dict or list of conversation dicts
-        provider: Provider name ('openai', 'anthropic', 'gemini', 'vllm')
+        provider: Provider name ('openai', 'anthropic', 'gemini', 'vllm', 'vllm_server')
         model: Model name
         **kwargs: Additional parameters specific to each provider
         
@@ -66,11 +72,22 @@ def infer(conversations: Union[List[Dict], Dict], provider: str, model: str, **k
                 llm_kwargs[param] = kwargs.pop(param)
         
         llm = VLLMProvider(model_id=model_id, gpu_num=gpu_num, **llm_kwargs)
-        # VLLM now handles both conversations and string prompts
+        # Local VLLM now handles both conversations and string prompts
         return llm.infer(conversations, **kwargs)
+
+    elif provider in ("vllm_server", "vllm-server"):
+        # vLLM served model over HTTP (OpenAI-compatible server)
+        base_url = kwargs.pop("base_url", None)
+        api_key = kwargs.pop("api_key", None)
+
+        llm = VLLMServerProvider(base_url=base_url, api_key=api_key)
+        return llm.infer(conversations, model=model, **kwargs)
     
     else:
-        raise ValueError(f"Unsupported provider: {provider}. Supported: openai, anthropic, gemini, vllm")
+        raise ValueError(
+            f"Unsupported provider: {provider}. "
+            f"Supported: openai, anthropic, gemini, vllm, vllm_server"
+        )
 
 
 def process_jsonl(
