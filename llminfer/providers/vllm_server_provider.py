@@ -19,6 +19,7 @@ import os
 import concurrent.futures
 from typing import List, Dict, Union, Optional, Any
 
+from tqdm import tqdm
 from .base import LLMProvider
 
 
@@ -151,9 +152,14 @@ class VLLMServerProvider(LLMProvider):
                 )
                 future_to_index[future] = i
 
-            for future in concurrent.futures.as_completed(future_to_index):
-                index = future_to_index[future]
-                results[index] = future.result()
+            with tqdm(
+                total=len(normalized),
+                desc=f"vLLM server inference ({model})",
+            ) as pbar:
+                for future in concurrent.futures.as_completed(future_to_index):
+                    index = future_to_index[future]
+                    results[index] = future.result()
+                    pbar.update(1)
 
         return results
 
