@@ -80,10 +80,13 @@ class VLLMServerProvider(LLMProvider):
     def _single_inference(
         self,
         messages: List[Dict[str, Any]],
+        *,
         model: str,
         return_json: bool = False,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        enable_thinking: Optional[bool] = None,
+        **client_kwargs: Any,
     ) -> str:
         """Run inference on a single normalized conversation."""
         try:
@@ -98,6 +101,19 @@ class VLLMServerProvider(LLMProvider):
                 kwargs["temperature"] = temperature
             if max_tokens is not None:
                 kwargs["max_tokens"] = max_tokens
+
+            # Handle extra_body / thinking configuration for compatible models (e.g., Qwen3.5)
+            extra_body = client_kwargs.pop("extra_body", {}) or {}
+            if enable_thinking is not None:
+                chat_template_kwargs = extra_body.get("chat_template_kwargs", {}) or {}
+                chat_template_kwargs["enable_thinking"] = enable_thinking
+                extra_body["chat_template_kwargs"] = chat_template_kwargs
+
+            if extra_body:
+                kwargs["extra_body"] = extra_body
+
+            # Forward any remaining custom parameters directly to the client
+            kwargs.update({k: v for k, v in client_kwargs.items() if v is not None})
 
             # Remove None values just in case
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
@@ -117,10 +133,12 @@ class VLLMServerProvider(LLMProvider):
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         max_workers: Optional[int] = None,
+        enable_thinking: Optional[bool] = None,
+        **client_kwargs: Any,
     ) -> List[str]:
         """
         Run inference against a vLLM OpenAI-compatible server.
-
+        
         Args:
             conversations: Conversation(s) or prompt string(s).
             model: Model name as exposed by the vLLM server.
@@ -128,10 +146,26 @@ class VLLMServerProvider(LLMProvider):
             temperature: Sampling temperature.
             max_tokens: Maximum number of tokens to generate.
             max_workers: Number of parallel requests (default: min(32, len(conversations)+4)).
-
+            enable_thinking: When not None, passed as
+                ``extra_body['chat_template_kwargs']['enable_thinking']`` for
+                Qwen3.5-series models only. Using this with other models will
+                raise a ValueError.
+            **client_kwargs: Additional parameters forwarded to the underlying
+                OpenAI-compatible client (e.g., top_p, presence_penalty, extra_body, ...).
+        
         Returns:
             List of generated responses (one per input item).
         """
+        # Validate enable_thinking usage: only allow for Qwen3.5 series models
+        if enable_thinking is not None:
+            model_lower = model.lower()
+            if "qwen3.5" not in model_lower:
+                raise ValueError(
+                    "enable_thinking is only supported for Qwen3.5-series models "
+                    "(model name containing 'Qwen3.5'). "
+                    f"Received model: {model!r}"
+                )
+
         normalized = self._normalize_conversations(conversations)
 
         if max_workers is None:
@@ -145,10 +179,12 @@ class VLLMServerProvider(LLMProvider):
                 future = executor.submit(
                     self._single_inference,
                     msgs,
-                    model,
-                    return_json,
-                    temperature,
-                    max_tokens,
+                    model=model,
+                    return_json=return_json,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    enable_thinking=enable_thinking,
+                    **client_kwargs,
                 )
                 future_to_index[future] = i
 
