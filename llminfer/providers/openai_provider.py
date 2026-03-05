@@ -1,9 +1,18 @@
 """
-OpenAI API provider implementation.
+OpenAI (and Azure OpenAI) API provider implementation.
+
+This provider can talk to either:
+- The public OpenAI API (using the OPENAI_API_KEY or config.json['openai']), or
+- An Azure OpenAI endpoint (using AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY).
+
+If both sets of credentials are present, **Azure takes precedence** so you can
+seamlessly switch by setting the Azure environment variables.
 """
 
+import os
 import concurrent.futures
 from typing import List, Dict, Union, Optional
+
 from tqdm import tqdm
 from .base import LLMProvider
 from ..config import load_api_key
@@ -15,13 +24,28 @@ class OpenAIProvider(LLMProvider):
     def __init__(self):
         try:
             from openai import OpenAI
-            
-            # Load API key from config.json or environment
-            api_key = load_api_key('openai')
-            if not api_key:
-                raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY environment variable or add 'openai' key to config.json")
-            
-            self.client = OpenAI(api_key=api_key)
+
+            # Prefer Azure OpenAI configuration when available
+            azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+            azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+
+            if azure_endpoint and azure_api_key:
+                # Azure OpenAI mode
+                self.client = OpenAI(
+                    api_key=azure_api_key,
+                    base_url=azure_endpoint,
+                )
+            else:
+                # Public OpenAI mode (config.json or OPENAI_API_KEY)
+                api_key = load_api_key("openai")
+                if not api_key:
+                    raise ValueError(
+                        "OpenAI API key not found. Please either:\n"
+                        "- Set OPENAI_API_KEY or add 'openai' key to config.json, or\n"
+                        "- Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY for Azure OpenAI."
+                    )
+
+                self.client = OpenAI(api_key=api_key)
         except ImportError:
             raise ImportError("Please install the openai package: pip install openai")
     
@@ -65,7 +89,7 @@ class OpenAIProvider(LLMProvider):
             
         except Exception as e:
             print(f"Error during OpenAI inference: {str(e)}")
-            return '[ERROR]'
+            return '[ERROR]: ' + str(e)
     
     def infer(self, conversations: Union[List[Dict], Dict], model: str, 
               return_json: bool = False, temperature: Optional[float] = None,

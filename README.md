@@ -4,7 +4,7 @@ A simple Python package for LLM inference with JSONL file support. Easily run in
 
 ## Features
 
-- **Multiple Providers**: Support for OpenAI, Anthropic Claude, Google Gemini, and VLLM
+- **Multiple Providers**: Support for OpenAI, Azure OpenAI, Anthropic Claude, Google Gemini, and VLLM
 - **JSONL Processing**: Built-in functions to process JSONL files with LLM inference
 - **Parallel Processing**: Concurrent API calls for faster inference with multiple conversations
 - **Batch Processing**: Handle large files efficiently with batch processing
@@ -155,7 +155,9 @@ Process a JSONL file in batches for large files. This is the core implementation
 
 #### OpenAI Provider
 
-Supports GPT models and reasoning models (o1, o3).
+Supports the public OpenAI API and **Azure OpenAI**. Use the same `provider="openai"` for both; the framework chooses the backend from your configuration.
+
+**Public OpenAI** (config.json `"openai"` key or `OPENAI_API_KEY`):
 
 ```python
 responses = llminfer.infer(
@@ -169,6 +171,24 @@ responses = llminfer.infer(
     max_workers=5  # Enable parallel processing (default: min(32, len(conversations) + 4))
 )
 ```
+
+**Azure OpenAI**: Set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`. Use your **deployment name** as `model`:
+
+```python
+import os
+os.environ["AZURE_OPENAI_ENDPOINT"] = "https://your-resource.openai.azure.com/"
+os.environ["AZURE_OPENAI_API_KEY"] = "your-azure-api-key"
+
+llminfer.process_jsonl(
+    "prompts.jsonl",
+    "output.jsonl",
+    provider="openai",
+    model="your-deployment-name",  # Azure deployment name, not model id
+    input_key="prompt",
+)
+```
+
+If both OpenAI and Azure credentials are set, **Azure is used**. Omit the Azure env vars to use the public API.
 
 #### Anthropic Provider
 
@@ -478,7 +498,16 @@ export ANTHROPIC_API_KEY="your-anthropic-key"
 export GOOGLE_API_KEY="your-google-key"
 ```
 
-**Note**: config.json takes priority over environment variables.
+**Azure OpenAI** (optional; uses `provider="openai"` with Azure backend):
+
+```bash
+export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="your-azure-api-key"
+```
+
+When both `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` are set, the OpenAI provider uses Azure instead of the public API. Use your Azure **deployment name** as the `model` argument.
+
+**Note**: config.json takes priority over environment variables for OpenAI/Anthropic/Gemini keys. Azure is configured only via the environment variables above.
 
 ## Examples
 
@@ -492,7 +521,7 @@ python examples.py
 ## Error Handling
 
 The package includes robust error handling:
-- API errors return '[ERROR]' as the response
+- API errors return '[ERROR]: [info]' as the response
 - Individual item failures don't stop batch processing
 - Detailed error messages are printed to help with debugging
 
