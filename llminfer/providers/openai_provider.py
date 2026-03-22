@@ -9,13 +9,45 @@ If both sets of credentials are present, **Azure takes precedence** so you can
 seamlessly switch by setting the Azure environment variables.
 """
 
+import logging
 import os
 import concurrent.futures
 from typing import List, Dict, Union, Optional
 
 from tqdm import tqdm
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_random_exponential,
+)
+
 from .base import LLMProvider
 from ..config import load_api_key
+
+logger = logging.getLogger(__name__)
+
+from openai import OpenAI
+
+
+def _before_sleep_rate_limit(retry_state) -> None:
+    """Log before sleeping on rate-limit retry."""
+    sleep_s = getattr(retry_state.next_action, "sleep", None)
+    logger.warning(
+        "Rate limit reached, retrying in %s seconds...",
+        sleep_s if sleep_s is not None else "unknown",
+    )
+
+
+@retry(
+    retry=retry_if_exception(OpenAI.RateLimitError),
+    wait=wait_random_exponential(min=1, max=60),
+    stop=stop_after_attempt(10),
+    before_sleep=_before_sleep_rate_limit,
+)
+def _completions_create_with_backoff(client, **kwargs):
+    """Call chat.completions.create with exponential backoff on rate limits."""
+    return client.chat.completions.create(**kwargs)
 
 
 class OpenAIProvider(LLMProvider):
@@ -23,8 +55,6 @@ class OpenAIProvider(LLMProvider):
     
     def __init__(self):
         try:
-            from openai import OpenAI
-
             # Prefer Azure OpenAI configuration when available
             azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
             azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
@@ -47,7 +77,9 @@ class OpenAIProvider(LLMProvider):
 
                 self.client = OpenAI(api_key=api_key)
         except ImportError:
-            raise ImportError("Please install the openai package: pip install openai")
+            raise ImportError(
+                "Please install the openai package: pip install openai tenacity"
+            )
     
     def _single_inference(self, conv: Dict, model: str, return_json: bool = False, 
                          temperature: Optional[float] = None, reasoning_effort: str = 'medium', 
@@ -84,7 +116,7 @@ class OpenAIProvider(LLMProvider):
             # Remove None values
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
             
-            completion = self.client.chat.completions.create(**kwargs)
+            completion = _completions_create_with_backoff(self.client, **kwargs)
             return completion.choices[0].message.content
             
         except Exception as e:

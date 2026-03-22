@@ -6,6 +6,7 @@ A simple Python package for LLM inference with JSONL file support. Easily run in
 
 - **Multiple Providers**: Support for OpenAI, Azure OpenAI, Anthropic Claude, Google Gemini, and VLLM
 - **JSONL Processing**: Built-in functions to process JSONL files with LLM inference
+- **Error Recovery**: `fix_jsonl` to re-run inference only for rows with `[ERROR]` responses
 - **Parallel Processing**: Concurrent API calls for faster inference with multiple conversations
 - **Batch Processing**: Handle large files efficiently with batch processing
 - **Reasoning Models**: Support for OpenAI's reasoning models (o1, o3) with proper parameter handling
@@ -16,7 +17,7 @@ A simple Python package for LLM inference with JSONL file support. Easily run in
 ## Installation
 
 ```bash
-pip install openai anthropic google-generativeai vllm  # Install the providers you need
+pip install openai tenacity anthropic google-generativeai vllm  # openai + tenacity for rate-limit retries
 ```
 
 ## Quick Start
@@ -151,11 +152,37 @@ Process a JSONL file with LLM inference and save results.
 
 Process a JSONL file in batches for large files. This is the core implementation that `process_jsonl` uses internally.
 
+#### `fix_jsonl(input_file, output_file, provider, model, **kwargs)`
+
+Re-run inference only for rows whose response field starts with `[ERROR]`, then write the updated file. Useful to retry failed items without reprocessing successful ones.
+
+**Parameters:**
+- `input_file`: Path to JSONL file (may contain `[ERROR]` responses)
+- `output_file`: Path to write the fixed JSONL
+- `provider`, `model`: Same as `process_jsonl`
+- `input_key`: Key containing input data (default: `"conversation"`)
+- `response_key`: Key storing the response (default: `"response"`)
+- `error_prefix`: String prefix marking a failed response (default: `"[ERROR]"`)
+- `**kwargs`: Provider-specific parameters
+
+```python
+llminfer.fix_jsonl(
+    "output.jsonl",
+    "output_fixed.jsonl",
+    provider="openai",
+    model="gpt-4",
+    input_key="prompt",
+    temperature=0.7,
+)
+```
+
 ### Providers
 
 #### OpenAI Provider
 
 Supports the public OpenAI API and **Azure OpenAI**. Use the same `provider="openai"` for both; the framework chooses the backend from your configuration.
+
+**Rate limits** (`tenacity` required): `chat.completions.create` is retried on `RateLimitError` with random exponential backoff (1–60s, up to 10 attempts). Install `tenacity` alongside `openai`.
 
 **Public OpenAI** (config.json `"openai"` key or `OPENAI_API_KEY`):
 

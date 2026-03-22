@@ -308,4 +308,107 @@ def process_jsonl_batch(
         print(f"Saving results to: {output_file}")
         write_jsonl(output_file, all_results)
     
-    print(f"Done! Processed {len(data)} items in total.") 
+    print(f"Done! Processed {len(data)} items in total.")
+
+
+def _is_error_response(value: Any, error_prefix: str = "[ERROR]") -> bool:
+    """Check if a response value indicates an error (e.g. '[ERROR]' or '[ERROR]: ...')."""
+    if not isinstance(value, str):
+        return False
+    return value.strip().startswith(error_prefix)
+
+
+def fix_jsonl(
+    input_file: str,
+    output_file: str,
+    provider: str,
+    model: str,
+    input_key: str = "conversation",
+    response_key: str = "response",
+    error_prefix: str = "[ERROR]",
+    **provider_kwargs
+) -> None:
+    """
+    Re-run inference for JSONL rows whose response field indicates an error, and write results.
+
+    Reads the JSONL file, finds items where the response_key value starts with error_prefix
+    (default ``"[ERROR]"``), re-runs inference on those items only, and writes the updated
+    data to output_file. Items without errors are left unchanged.
+
+    Args:
+        input_file: Path to input JSONL file (may contain [ERROR] responses)
+        output_file: Path to output JSONL file (will be overwritten)
+        provider: Provider name ('openai', 'anthropic', 'gemini', 'vllm', 'vllm_server')
+        model: Model name
+        input_key: Key containing input data (prompt string or conversation list)
+        response_key: Key storing the response (default: "response")
+        error_prefix: String prefix that marks a response as failed (default: "[ERROR]")
+        **provider_kwargs: Additional parameters for the provider
+
+    Example:
+        # Fix failed items in a previously processed file
+        llminfer.fix_jsonl(
+            "output.jsonl",
+            "output_fixed.jsonl",
+            provider="openai",
+            model="gpt-4",
+            input_key="prompt",
+            temperature=0.7,
+        )
+    """
+    data = read_jsonl(input_file)
+    if not data:
+        print("No data found in input file")
+        return
+
+    # Find indices and items that need re-inference
+    error_indices = [
+        i for i, item in enumerate(data)
+        if _is_error_response(item.get(response_key), error_prefix)
+    ]
+
+    if not error_indices:
+        print("No error responses found; nothing to fix.")
+        write_jsonl(output_file, data)
+        return
+
+    print(f"Found {len(error_indices)} items with error responses (out of {len(data)}). Re-running inference...")
+
+    # Detect input type from first item
+    first_item = data[0]
+    if input_key not in first_item:
+        raise KeyError(f"Key '{input_key}' not found in first item")
+
+    first_input = first_item[input_key]
+    is_string_input = isinstance(first_input, str)
+    is_conversation_input = isinstance(first_input, list)
+
+    if not (is_string_input or is_conversation_input):
+        raise ValueError(f"Input data must be a string or list, got {type(first_input)}")
+
+    # Build conversations only for error items
+    conversations = []
+    for i in error_indices:
+        item = data[i]
+        input_data = item.get(input_key)
+        if input_data is None:
+            raise KeyError(f"Key '{input_key}' not found in item {i}")
+
+        if is_string_input:
+            conv = [{"role": "user", "content": input_data}]
+        else:
+            conv = input_data
+        conversations.append(conv)
+
+    try:
+        responses = infer(conversations, provider=provider, model=model, **provider_kwargs)
+    except Exception as e:
+        print(f"Error during inference: {e}")
+        raise
+
+    for data_idx, response in zip(error_indices, responses):
+        data[data_idx][response_key] = response
+
+    print(f"Saving fixed results to: {output_file}")
+    write_jsonl(output_file, data)
+    print(f"Done! Fixed {len(error_indices)} items.")

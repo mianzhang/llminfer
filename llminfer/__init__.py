@@ -7,18 +7,20 @@ including OpenAI, Anthropic, Google Gemini, and VLLM.
 Main functions:
 - process_jsonl: Process a JSONL file with an LLM and save results (uses process_jsonl_batch internally)
 - process_jsonl_batch: Process a JSONL file in batches for large files or intermediate saves
+- fix_jsonl: Re-run inference for rows with [ERROR] in the response field
 - infer: Run inference on conversations/prompts directly
 """
 
-from .core import process_jsonl, process_jsonl_batch, infer
+from .core import process_jsonl, process_jsonl_batch, fix_jsonl, infer
 from .providers import OpenAIProvider, AnthropicProvider, GeminiProvider, VLLMProvider
 from .utils import read_jsonl, write_jsonl
 from .config import load_api_key, create_sample_config
 
 __version__ = "0.1.0"
 __all__ = [
-    "process_jsonl", 
+    "process_jsonl",
     "process_jsonl_batch",
+    "fix_jsonl",
     "infer",
     "OpenAIProvider", 
     "AnthropicProvider", 

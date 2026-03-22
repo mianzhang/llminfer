@@ -30,20 +30,16 @@ setup(
         # Core dependencies - users install provider packages as needed
     ],
     extras_require={
-        "openai": ["openai>=1.0.0"],
+        "openai": ["openai>=1.0.0", "tenacity>=8.0.0"],
         "anthropic": ["anthropic>=0.8.0"],
         "gemini": ["google-generativeai>=0.3.0"],
         "vllm": ["vllm>=0.2.0"],
         "all": [
             "openai>=1.0.0",
-            "anthropic>=0.8.0", 
+            "tenacity>=8.0.0",
+            "anthropic>=0.8.0",
             "google-generativeai>=0.3.0",
-            "vllm>=0.2.0"
-        ]
-    },
-    entry_points={
-        "console_scripts": [
-            "llminfer=llminfer.cli:main",
+            "vllm>=0.2.0",
         ],
     },
 ) 
