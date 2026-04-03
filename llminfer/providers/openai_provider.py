@@ -40,7 +40,7 @@ def _before_sleep_rate_limit(retry_state) -> None:
 
 
 @retry(
-    retry=retry_if_exception(OpenAI.RateLimitError),
+    retry=retry_if_exception(Exception),
     wait=wait_random_exponential(min=1, max=60),
     stop=stop_after_attempt(10),
     before_sleep=_before_sleep_rate_limit,
