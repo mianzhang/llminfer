@@ -106,7 +106,7 @@ class VLLMProvider(LLMProvider):
             # Check if this is a model that supports thinking (like Qwen3 or Gemini 2.5)
             model_lower = self.model_id.lower()
             
-            if 'qwen3' in model_lower or ('gemini' in model_lower and '2.5' in model_lower):
+            if 'qwen' in model_lower or ('gemini' in model_lower and '2.5' in model_lower):
                 # These models support thinking parameter
                 try:
                     prompt = tokenizer.apply_chat_template(
