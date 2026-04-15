@@ -58,12 +58,19 @@ class OpenAIProvider(LLMProvider):
             # Prefer Azure OpenAI configuration when available
             azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
             azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+            deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
 
             if azure_endpoint and azure_api_key:
                 # Azure OpenAI mode
                 self.client = OpenAI(
                     api_key=azure_api_key,
                     base_url=azure_endpoint,
+                )
+            elif deepseek_api_key:
+                # DeepSeek mode
+                self.client = OpenAI(
+                    api_key=deepseek_api_key,
+                    base_url="https://api.deepseek.com/v1",
                 )
             else:
                 # Public OpenAI mode (config.json or OPENAI_API_KEY)
