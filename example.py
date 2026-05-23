@@ -11,4 +11,5 @@ llminfer.process_jsonl(
     provider="openai",
     model="gpt-5",
     input_key="prompt",  # Key pointing to string prompts
+    service_tier="flex",
 )

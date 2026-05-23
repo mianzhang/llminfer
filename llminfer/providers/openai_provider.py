@@ -71,6 +71,7 @@ def _completions_create_with_backoff(client, **kwargs):
 
 class OpenAIProvider(LLMProvider):
     """OpenAI API provider supporting GPT models and reasoning models like o1, o3."""
+    FLEX_TIMEOUT_SECONDS = 900.0
     
     def __init__(self):
         try:
@@ -116,6 +117,7 @@ class OpenAIProvider(LLMProvider):
         reasoning_effort: str = 'medium',
         max_completion_tokens: Optional[int] = None,
         include_usage: bool = True,
+        service_tier: Optional[str] = None,
     ) -> Union[str, Dict[str, Any]]:
         """Run inference on a single conversation."""
         try:
@@ -133,6 +135,11 @@ class OpenAIProvider(LLMProvider):
             
             if return_json:
                 kwargs["response_format"] = {"type": "json_object"}
+            if service_tier is not None:
+                kwargs["service_tier"] = service_tier
+                if str(service_tier).lower() == "flex":
+                    # Flex mode can take longer; match OpenAI client timeout guidance.
+                    kwargs["timeout"] = self.FLEX_TIMEOUT_SECONDS
             
             if is_reasoning_model(model):
                 # Only add supported params for reasoning models
@@ -156,6 +163,7 @@ class OpenAIProvider(LLMProvider):
                 return {
                     "response": response_text,
                     "usage": _usage_to_dict(getattr(completion, "usage", None)),
+                    "service_tier": getattr(completion, "service_tier", None),
                 }
 
             return response_text
@@ -164,13 +172,14 @@ class OpenAIProvider(LLMProvider):
             print(f"Error during OpenAI inference: {str(e)}")
             error_response = '[ERROR]: ' + str(e)
             if include_usage:
-                return {"response": error_response, "usage": None}
+                return {"response": error_response, "usage": None, "service_tier": None}
             return error_response
     
     def infer(self, conversations: Union[List[Dict], Dict], model: str, 
               return_json: bool = False, temperature: Optional[float] = None,
               reasoning_effort: str = 'medium', max_completion_tokens: Optional[int] = None,
-              max_workers: Optional[int] = None, include_usage: bool = True) -> List[Union[str, Dict[str, Any]]]:
+              max_workers: Optional[int] = None, include_usage: bool = True,
+              service_tier: Optional[str] = None) -> List[Union[str, Dict[str, Any]]]:
         """
         Run OpenAI inference with parallel processing.
         
@@ -183,6 +192,7 @@ class OpenAIProvider(LLMProvider):
             max_completion_tokens: Max tokens for reasoning models
             max_workers: Maximum number of concurrent threads (default: min(32, len(conversations) + 4))
             include_usage: Whether to include OpenAI usage metadata in results
+            service_tier: OpenAI service tier (e.g. "flex", "default", "auto")
             
         Returns:
             List of generated responses
@@ -201,7 +211,7 @@ class OpenAIProvider(LLMProvider):
                 future = executor.submit(
                     self._single_inference, 
                     conv, model, return_json, temperature, 
-                    reasoning_effort, max_completion_tokens, include_usage
+                    reasoning_effort, max_completion_tokens, include_usage, service_tier
                 )
                 future_to_index[future] = i
             

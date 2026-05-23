@@ -94,6 +94,7 @@ def _extract_response_and_usage(
     result: Any,
     response_key: str,
     usage_key: str,
+    service_tier_key: str,
 ) -> Dict[str, Any]:
     """
     Normalize provider result into output fields.
@@ -117,6 +118,10 @@ def _extract_response_and_usage(
     if usage_payload is not None:
         output[usage_key] = usage_payload
 
+    service_tier_payload = result.get("service_tier")
+    if service_tier_payload is not None:
+        output[service_tier_key] = service_tier_payload
+
     return output
 
 
@@ -128,6 +133,7 @@ def process_jsonl(
     input_key: str = "conversation",
     response_key: str = "response",
     usage_key: str = "usage",
+    service_tier_key: str = "service_tier",
     **provider_kwargs
 ) -> None:
     """
@@ -141,6 +147,7 @@ def process_jsonl(
         input_key: Key in JSON objects containing input data (prompt string or conversation list)
         response_key: Key to store the LLM response in output
         usage_key: Key to store token usage metadata (when available)
+        service_tier_key: Key to store applied service tier (when available)
         **provider_kwargs: Additional parameters for the provider
         
     The input JSONL should contain items with consistent input data type:
@@ -195,6 +202,7 @@ def process_jsonl(
         input_key=input_key,
         response_key=response_key,
         usage_key=usage_key,
+        service_tier_key=service_tier_key,
         **provider_kwargs
     )
 
@@ -208,6 +216,7 @@ def process_jsonl_batch(
     input_key: str = "conversation",
     response_key: str = "response",
     usage_key: str = "usage",
+    service_tier_key: str = "service_tier",
     **provider_kwargs
 ) -> None:
     """
@@ -225,6 +234,7 @@ def process_jsonl_batch(
         input_key: Key in JSON objects containing input data (prompt string or conversation list)
         response_key: Key to store the LLM response in output
         usage_key: Key to store token usage metadata (when available)
+        service_tier_key: Key to store applied service tier (when available)
         **provider_kwargs: Additional parameters for the provider
         
     All items in the file must have the same input type (all strings or all conversations).
@@ -325,7 +335,9 @@ def process_jsonl_batch(
         
         # Add responses to batch items
         for item, response in zip(batch, responses):
-            item.update(_extract_response_and_usage(response, response_key, usage_key))
+            item.update(
+                _extract_response_and_usage(response, response_key, usage_key, service_tier_key)
+            )
         
         if is_single_batch:
             # For single batch, collect all results
