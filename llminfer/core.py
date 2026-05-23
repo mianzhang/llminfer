@@ -90,6 +90,36 @@ def infer(conversations: Union[List[Dict], Dict], provider: str, model: str, **k
         )
 
 
+def _extract_response_and_usage(
+    result: Any,
+    response_key: str,
+    usage_key: str,
+) -> Dict[str, Any]:
+    """
+    Normalize provider result into output fields.
+
+    Providers usually return a plain response string. Some providers may return
+    structured payloads (e.g., {"response": "...", "usage": {...}}).
+    """
+    output = {response_key: result}
+
+    if not isinstance(result, dict):
+        return output
+
+    # Prefer explicit response keys, then common alternatives.
+    response_text = result.get("response")
+    if response_text is None:
+        response_text = result.get("text")
+    if response_text is not None:
+        output[response_key] = response_text
+
+    usage_payload = result.get("usage")
+    if usage_payload is not None:
+        output[usage_key] = usage_payload
+
+    return output
+
+
 def process_jsonl(
     input_file: str,
     output_file: str,
@@ -97,6 +127,7 @@ def process_jsonl(
     model: str,
     input_key: str = "conversation",
     response_key: str = "response",
+    usage_key: str = "usage",
     **provider_kwargs
 ) -> None:
     """
@@ -109,6 +140,7 @@ def process_jsonl(
         model: Model name
         input_key: Key in JSON objects containing input data (prompt string or conversation list)
         response_key: Key to store the LLM response in output
+        usage_key: Key to store token usage metadata (when available)
         **provider_kwargs: Additional parameters for the provider
         
     The input JSONL should contain items with consistent input data type:
@@ -162,6 +194,7 @@ def process_jsonl(
         batch_size=len(data),  # Process all items in a single batch
         input_key=input_key,
         response_key=response_key,
+        usage_key=usage_key,
         **provider_kwargs
     )
 
@@ -174,6 +207,7 @@ def process_jsonl_batch(
     batch_size: int = 10,
     input_key: str = "conversation",
     response_key: str = "response",
+    usage_key: str = "usage",
     **provider_kwargs
 ) -> None:
     """
@@ -190,6 +224,7 @@ def process_jsonl_batch(
         batch_size: Number of items to process in each batch
         input_key: Key in JSON objects containing input data (prompt string or conversation list)
         response_key: Key to store the LLM response in output
+        usage_key: Key to store token usage metadata (when available)
         **provider_kwargs: Additional parameters for the provider
         
     All items in the file must have the same input type (all strings or all conversations).
@@ -277,6 +312,9 @@ def process_jsonl_batch(
             print("Running inference...")
             
         try:
+            # Capture usage metadata for OpenAI calls unless the caller overrides it.
+            if provider.lower() == "openai" and "include_usage" not in provider_kwargs:
+                provider_kwargs["include_usage"] = True
             responses = infer(conversations, provider=provider, model=model, **provider_kwargs)
         except Exception as e:
             if not is_single_batch:
@@ -287,7 +325,7 @@ def process_jsonl_batch(
         
         # Add responses to batch items
         for item, response in zip(batch, responses):
-            item[response_key] = response
+            item.update(_extract_response_and_usage(response, response_key, usage_key))
         
         if is_single_batch:
             # For single batch, collect all results

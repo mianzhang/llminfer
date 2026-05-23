@@ -117,6 +117,10 @@ llminfer.process_jsonl(
 {"id": 2, "conversation": [{"role": "user", "content": "Hello!"}], "response": "Hello! How can I help you today?"}
 ```
 
+When a provider returns separate reasoning/thinking metadata, JSONL rows also include:
+- `reasoning`: captured thinking text (if available)
+- `reasoning_tokens`: number of reasoning tokens used (if available)
+
 ## API Reference
 
 ### Core Functions
@@ -144,7 +148,8 @@ Process a JSONL file with LLM inference and save results.
 - `model`: Model name
 - `input_key`: Key containing input data - string prompt or conversation list (default: "conversation")
 - `response_key`: Key to store response (default: "response")
-
+- `reasoning_key`: Key to store reasoning/thinking text (default: `"reasoning"`)
+- `reasoning_tokens_key`: Key to store reasoning token usage (default: `"reasoning_tokens"`)
 
 - `**kwargs`: Provider-specific parameters
 

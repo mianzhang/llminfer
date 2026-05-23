@@ -22,15 +22,23 @@ class VLLMProvider(LLMProvider):
         """
         try:
             from vllm import LLM, SamplingParams
-            from transformers import AutoTokenizer
-            self.LLM = LLM
-            self.SamplingParams = SamplingParams
-            self.AutoTokenizer = AutoTokenizer
         except ImportError as e:
-            if "vllm" in str(e):
-                raise ImportError("Please install the vllm package: pip install vllm")
-            else:
-                raise ImportError("Please install the transformers package: pip install transformers")
+            raise ImportError(
+                "Failed to import vllm (or a native/CUDA dependency it loads). "
+                "Install with: pip install vllm. "
+                "If vllm is installed, check CUDA/driver/toolkit (e.g. libcudart). "
+                f"Original error: {e}"
+            ) from e
+        try:
+            from transformers import AutoTokenizer
+        except ImportError as e:
+            raise ImportError(
+                "Failed to import transformers. Install with: pip install transformers. "
+                f"Original error: {e}"
+            ) from e
+        self.LLM = LLM
+        self.SamplingParams = SamplingParams
+        self.AutoTokenizer = AutoTokenizer
         
         self.model_id = model_id
         self.gpu_num = gpu_num if gpu_num is not None else self._detect_gpu_count()

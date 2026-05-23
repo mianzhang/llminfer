@@ -12,7 +12,7 @@ seamlessly switch by setting the Azure environment variables.
 import logging
 import os
 import concurrent.futures
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Union, Optional, Any
 
 from tqdm import tqdm
 from tenacity import (
@@ -28,6 +28,25 @@ from ..config import load_api_key
 logger = logging.getLogger(__name__)
 
 from openai import OpenAI
+
+
+def _usage_to_dict(usage_obj: Any) -> Optional[Dict[str, Any]]:
+    """Convert OpenAI usage object into a plain Python dict."""
+    if usage_obj is None:
+        return None
+
+    # OpenAI SDK objects (Pydantic models) support model_dump().
+    if hasattr(usage_obj, "model_dump"):
+        return usage_obj.model_dump()
+
+    if isinstance(usage_obj, dict):
+        return usage_obj
+
+    # Best-effort fallback for unknown usage object types.
+    try:
+        return dict(usage_obj)
+    except Exception:
+        return None
 
 
 def _before_sleep_rate_limit(retry_state) -> None:
@@ -88,9 +107,16 @@ class OpenAIProvider(LLMProvider):
                 "Please install the openai package: pip install openai tenacity"
             )
     
-    def _single_inference(self, conv: Dict, model: str, return_json: bool = False, 
-                         temperature: Optional[float] = None, reasoning_effort: str = 'medium', 
-                         max_completion_tokens: Optional[int] = None) -> str:
+    def _single_inference(
+        self,
+        conv: Dict,
+        model: str,
+        return_json: bool = False,
+        temperature: Optional[float] = None,
+        reasoning_effort: str = 'medium',
+        max_completion_tokens: Optional[int] = None,
+        include_usage: bool = True,
+    ) -> Union[str, Dict[str, Any]]:
         """Run inference on a single conversation."""
         try:
             # List of reasoning model name substrings (case-insensitive)
@@ -124,16 +150,27 @@ class OpenAIProvider(LLMProvider):
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
             
             completion = _completions_create_with_backoff(self.client, **kwargs)
-            return completion.choices[0].message.content
+            response_text = completion.choices[0].message.content
+
+            if include_usage:
+                return {
+                    "response": response_text,
+                    "usage": _usage_to_dict(getattr(completion, "usage", None)),
+                }
+
+            return response_text
             
         except Exception as e:
             print(f"Error during OpenAI inference: {str(e)}")
-            return '[ERROR]: ' + str(e)
+            error_response = '[ERROR]: ' + str(e)
+            if include_usage:
+                return {"response": error_response, "usage": None}
+            return error_response
     
     def infer(self, conversations: Union[List[Dict], Dict], model: str, 
               return_json: bool = False, temperature: Optional[float] = None,
               reasoning_effort: str = 'medium', max_completion_tokens: Optional[int] = None,
-              max_workers: Optional[int] = None) -> List[str]:
+              max_workers: Optional[int] = None, include_usage: bool = True) -> List[Union[str, Dict[str, Any]]]:
         """
         Run OpenAI inference with parallel processing.
         
@@ -145,6 +182,7 @@ class OpenAIProvider(LLMProvider):
             reasoning_effort: Effort level for reasoning models ('low', 'medium', 'high')
             max_completion_tokens: Max tokens for reasoning models
             max_workers: Maximum number of concurrent threads (default: min(32, len(conversations) + 4))
+            include_usage: Whether to include OpenAI usage metadata in results
             
         Returns:
             List of generated responses
@@ -163,7 +201,7 @@ class OpenAIProvider(LLMProvider):
                 future = executor.submit(
                     self._single_inference, 
                     conv, model, return_json, temperature, 
-                    reasoning_effort, max_completion_tokens
+                    reasoning_effort, max_completion_tokens, include_usage
                 )
                 future_to_index[future] = i
             
