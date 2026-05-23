@@ -17,10 +17,10 @@ class GeminiProvider(LLMProvider):
             import google.generativeai as genai
             self.genai = genai
             
-            # Load API key from config.json or environment
+            # Load API key from environment
             api_key = load_api_key('gemini')
             if not api_key:
-                raise ValueError("Google API key not found. Please set GOOGLE_API_KEY environment variable or add 'gemini' key to config.json")
+                raise ValueError("Google API key not found. Please set GOOGLE_API_KEY environment variable.")
             
             genai.configure(api_key=api_key)
         except ImportError:

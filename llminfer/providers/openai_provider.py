@@ -2,7 +2,7 @@
 OpenAI (and Azure OpenAI) API provider implementation.
 
 This provider can talk to either:
-- The public OpenAI API (using the OPENAI_API_KEY or config.json['openai']), or
+- The public OpenAI API (using OPENAI_API_KEY), or
 - An Azure OpenAI endpoint (using AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY).
 
 If both sets of credentials are present, **Azure takes precedence** so you can
@@ -93,12 +93,12 @@ class OpenAIProvider(LLMProvider):
                     base_url="https://api.deepseek.com/v1",
                 )
             else:
-                # Public OpenAI mode (config.json or OPENAI_API_KEY)
+                # Public OpenAI mode (OPENAI_API_KEY)
                 api_key = load_api_key("openai")
                 if not api_key:
                     raise ValueError(
                         "OpenAI API key not found. Please either:\n"
-                        "- Set OPENAI_API_KEY or add 'openai' key to config.json, or\n"
+                        "- Set OPENAI_API_KEY, or\n"
                         "- Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY for Azure OpenAI."
                     )
 

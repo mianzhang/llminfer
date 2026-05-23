@@ -1,19 +1,14 @@
 """
-Simple configuration loader for API keys.
+Simple configuration loader for API keys (environment variables only).
 """
 
-import json
 import os
 from typing import Optional
 
 
 def load_api_key(provider: str) -> Optional[str]:
     """
-    Load API key for a provider.
-    
-    Priority:
-    1. config.json file
-    2. Environment variables
+    Load API key for a provider from environment variables only.
     
     Args:
         provider: 'openai', 'anthropic', or 'gemini'
@@ -21,16 +16,6 @@ def load_api_key(provider: str) -> Optional[str]:
     Returns:
         API key or None
     """
-    # Try config.json first
-    if os.path.exists('config.json'):
-        try:
-            with open('config.json', 'r') as f:
-                config = json.load(f)
-                return config.get(provider)
-        except:
-            pass
-    
-    # Fallback to environment variables
     env_vars = {
         'openai': 'OPENAI_API_KEY',
         'anthropic': 'ANTHROPIC_API_KEY', 
@@ -41,14 +26,14 @@ def load_api_key(provider: str) -> Optional[str]:
 
 
 def create_sample_config():
-    """Create a sample config.json file."""
-    sample = {
-        "openai": "your-openai-api-key-here",
-        "anthropic": "your-anthropic-api-key-here",
-        "gemini": "your-google-api-key-here"
-    }
-    
-    with open('config.json.example', 'w') as f:
-        json.dump(sample, f, indent=2)
-    
-    print("Created config.json.example - copy to config.json and add your keys") 
+    """Create a sample .env.example file for API keys."""
+    sample = (
+        "OPENAI_API_KEY=your-openai-api-key-here\n"
+        "ANTHROPIC_API_KEY=your-anthropic-api-key-here\n"
+        "GOOGLE_API_KEY=your-google-api-key-here\n"
+    )
+
+    with open('.env.example', 'w') as f:
+        f.write(sample)
+
+    print("Created .env.example - export these environment variables before running.")

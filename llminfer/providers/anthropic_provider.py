@@ -15,10 +15,10 @@ class AnthropicProvider(LLMProvider):
         try:
             import anthropic
             
-            # Load API key from config.json or environment
+            # Load API key from environment
             api_key = load_api_key('anthropic')
             if not api_key:
-                raise ValueError("Anthropic API key not found. Please set ANTHROPIC_API_KEY environment variable or add 'anthropic' key to config.json")
+                raise ValueError("Anthropic API key not found. Please set ANTHROPIC_API_KEY environment variable.")
             
             self.client = anthropic.Anthropic(api_key=api_key)
         except ImportError:
